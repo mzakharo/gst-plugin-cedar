@@ -4,8 +4,8 @@ AC_PREREQ([2.53])
 AC_INIT([gst-plugin-cedar],[0.10.1], ebutera@users.sourceforge.net)
 
 dnl required versions of gstreamer and plugins-base
-GST_REQUIRED=0.10.16
-GSTPB_REQUIRED=0.10.16
+GST_REQUIRED=1.0
+GSTPB_REQUIRED=1.0
 
 AC_CONFIG_SRCDIR([src/gstcedarh264enc.c])
 AC_CONFIG_HEADERS([config.h])
@@ -31,10 +31,10 @@ AC_CHECK_PROG(HAVE_PKGCONFIG, pkg-config, [ ], [
 dnl Check for the required version of GStreamer core (and gst-plugins-base)
 dnl This will export GST_CFLAGS and GST_LIBS variables for use in Makefile.am
 PKG_CHECK_MODULES(GST, [
-  gstreamer-0.10 >= $GST_REQUIRED
-  gstreamer-base-0.10 >= $GST_REQUIRED
-  gstreamer-controller-0.10 >= $GST_REQUIRED
-  gstreamer-video-0.10 >= $GST_REQUIRED
+  gstreamer-1.0 >= $GST_REQUIRED
+  gstreamer-base-1.0 >= $GST_REQUIRED
+  gstreamer-controller-1.0 >= $GST_REQUIRED
+  gstreamer-video-1.0 >= $GST_REQUIRED
 ], [
   AC_SUBST(GST_CFLAGS)
   AC_SUBST(GST_LIBS)
@@ -42,8 +42,8 @@ PKG_CHECK_MODULES(GST, [
   AC_MSG_ERROR([
       You need to install or upgrade the GStreamer development
       packages on your system. On debian-based systems these are
-      libgstreamer0.10-dev and libgstreamer-plugins-base0.10-dev.
-      on RPM-based systems gstreamer0.10-devel, libgstreamer0.10-devel
+      libgstreamer1.0-dev and libgstreamer-plugins-base1.0-dev.
+      on RPM-based systems gstreamer1.0-devel, libgstreamer1.0-devel
       or similar. The minimum version required is $GST_REQUIRED.
   ])
 ])
@@ -61,9 +61,9 @@ AC_COMPILE_IFELSE([AC_LANG_PROGRAM([ ], [ ])], [
 
 dnl set the plugindir where plugins should be installed (for src/Makefile.am)
 if test "x${prefix}" = "x$HOME"; then
-  plugindir="$HOME/.gstreamer-0.10/plugins"
+  plugindir="$HOME/.gstreamer-1.0/plugins"
 else
-  plugindir="\$(libdir)/gstreamer-0.10"
+  plugindir="\$(libdir)/gstreamer-1.0"
 fi
 AC_SUBST(plugindir)
 
