@@ -313,25 +313,6 @@ error_out1:
 	return FALSE;
 }
 
-/* GObject vmethod implementations */
-
-static void
-gst_cedarh264enc_base_init (gpointer gclass)
-{
-  GstElementClass *element_class = GST_ELEMENT_CLASS (gclass);
-
-  gst_element_class_set_details_simple(element_class,
-    "cedar_h264enc",
-    "CedarX H264 Encoder",
-    "H264 Encoder Plugin for CedarX hardware",
-    "Enrico Butera <ebutera@users.berlios.de>");
-
-  gst_element_class_add_pad_template (element_class,
-      gst_static_pad_template_get (&src_factory));
-  gst_element_class_add_pad_template (element_class,
-      gst_static_pad_template_get (&sink_factory));
-}
-
 /* initialize the cedar_h264enc's class */
 static void
 gst_cedarh264enc_class_init (Gstcedarh264encClass * klass)
@@ -341,6 +322,16 @@ gst_cedarh264enc_class_init (Gstcedarh264encClass * klass)
 
   gobject_class = (GObjectClass *) klass;
   gstelement_class = (GstElementClass *) klass;
+  gst_element_class_set_details_simple(gstelement_class,
+    "cedar_h264enc",
+    "CedarX H264 Encoder",
+    "H264 Encoder Plugin for CedarX hardware",
+    "Enrico Butera <ebutera@users.berlios.de>");
+
+  gst_element_class_add_pad_template (gstelement_class,
+      gst_static_pad_template_get (&src_factory));
+  gst_element_class_add_pad_template (gstelement_class,
+      gst_static_pad_template_get (&sink_factory));
   
   gobject_class->set_property = gst_cedarh264enc_set_property;
   gobject_class->get_property = gst_cedarh264enc_get_property;
