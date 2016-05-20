@@ -83,8 +83,8 @@ static GstStaticPadTemplate sink_factory = GST_STATIC_PAD_TEMPLATE ("sink",
     GST_PAD_SINK,
     GST_PAD_ALWAYS,
     GST_STATIC_CAPS (
-		"video/x-raw-yuv, "
-			"format = (fourcc) NV12, "
+		"video/x-raw, "
+			"format = (string) NV12, "
 			"width = (int) [16,1920], "
 			"height = (int) [16,1080]"
 			/*"framerate=(fraction)[1/1,25/1]"*/
