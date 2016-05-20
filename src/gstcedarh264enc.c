@@ -1,14 +1,14 @@
 /*
  * Cedar H264 Encoder Plugin
  * Copyright (C) 2014 Enrico Butera <ebutera@users.sourceforge.net>
- * 
+ *
  * Byte stream utils:
  * Copyright (c) 2014 Jens Kuske <jenskuske@gmail.com>
- * 
+ *
  * Gst template code:
  * Copyright (C) 2005 Thomas Vander Stichele <thomas@apestaart.org>
  * Copyright (C) 2005 Ronald S. Bultje <rbultje@ronald.bitfreak.net>
- * 
+ *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
  * to deal in the Software without restriction, including without limitation
@@ -256,13 +256,13 @@ static gboolean alloc_cedar_bufs(Gstcedarh264enc *cedarelement)
 	cedarelement->mb_w = (cedarelement->width + 15) / 16;
 	cedarelement->mb_h = (cedarelement->height + 15) / 16;
 	cedarelement->plane_size = cedarelement->mb_w * 16 * cedarelement->mb_h * 16;
-	
+
 	cedarelement->output_buf = ve_malloc(CEDAR_OUTPUT_BUF_SIZE);
 	if (!cedarelement->output_buf) {
 		GST_ERROR("Cannot allocate Cedar output buffer");
 		return FALSE;
 	}
-	
+
 	/**
 	 * TODO: avoid input buffer copy and let upstream element write directly to
 	 *   a cedar buffer (pad alloc?)
@@ -279,22 +279,22 @@ static gboolean alloc_cedar_bufs(Gstcedarh264enc *cedarelement)
 		GST_ERROR("Cannot allocate Cedar reconstruct buffer");
 		goto error_out2;
 	}
-	
+
 	cedarelement->small_luma_buf = ve_malloc(cedarelement->tile_w2 * cedarelement->tile_h2);
 	if (!cedarelement->small_luma_buf) {
 		GST_ERROR("Cannot allocate Cedar small luma buffer");
 		goto error_out3;
 	}
-	
+
 	cedarelement->mb_info_buf = ve_malloc(0x1000);
 	if (!cedarelement->mb_info_buf) {
 		GST_ERROR("Cannot allocate Cedar mb info buffer");
 		goto error_out4;
 	}
-	
+
 	// activate AVC engine
 	writel(0x0013000b, cedarelement->ve_regs + VE_CTRL);
-	
+
 	return TRUE;
 
 error_out4:
@@ -419,7 +419,7 @@ gst_cedarh264enc_set_caps (GstPad * pad, GstCaps * caps)
 
 	filter = GST_CEDAR_H264ENC (gst_pad_get_parent (pad));
 	otherpad = (pad == filter->srcpad) ? filter->sinkpad : filter->srcpad;
-  
+
 	if (pad == filter->sinkpad) {
 		int ret;
 		int fps_num, fps_den;
@@ -433,11 +433,11 @@ gst_cedarh264enc_set_caps (GstPad * pad, GstCaps * caps)
 			"height", G_TYPE_INT, filter->height,
 			"framerate", GST_TYPE_FRACTION, fps_num, fps_den,
 			"profile", G_TYPE_STRING, "main", NULL);
-		
+
 		gst_object_unref (filter);
 		ret = gst_pad_set_caps (otherpad, othercaps);
 		gst_caps_unref(othercaps);
-		
+
 		return ret;
 	}
 
@@ -469,7 +469,7 @@ gst_cedarh264enc_chain (GstPad * pad, GstBuffer * buf)
 		outbuf = gst_buffer_new();
 		gst_buffer_set_caps(outbuf, GST_PAD_CAPS(filter->srcpad));
 		GST_BUFFER_TIMESTAMP(outbuf) = GST_BUFFER_TIMESTAMP(buf);
-		
+
 		return gst_pad_push (filter->srcpad, outbuf);
 	}
 	
@@ -480,7 +480,7 @@ gst_cedarh264enc_chain (GstPad * pad, GstBuffer * buf)
 	// output buffer
 	// flush output buffer, otherwise we might read old cached data
 	ve_flush_cache(filter->output_buf, CEDAR_OUTPUT_BUF_SIZE);
-	
+
 	writel(0x0, filter->ve_regs + VE_AVC_VLE_OFFSET);
 	writel(ve_virt2phys(filter->output_buf), filter->ve_regs + VE_AVC_VLE_ADDR);
 	writel(ve_virt2phys(filter->output_buf) + CEDAR_OUTPUT_BUF_SIZE - 1, filter->ve_regs + VE_AVC_VLE_END);
@@ -548,14 +548,14 @@ static GstStateChangeReturn
 {
 	GstStateChangeReturn ret = GST_STATE_CHANGE_SUCCESS;
 	Gstcedarh264enc *cedarelement = GST_CEDAR_H264ENC(element);
-	
+
 	switch(transition) {
 		case GST_STATE_CHANGE_NULL_TO_READY:
 			if (!ve_open()) {
 				GST_ERROR("Cannot open VE");
 				return GST_STATE_CHANGE_FAILURE;
 			}
-			
+
 			cedarelement->ve_regs = ve_get_regs();
 
 			if (!cedarelement->ve_regs) {
@@ -563,7 +563,7 @@ static GstStateChangeReturn
 				ve_close();
 				return GST_STATE_CHANGE_FAILURE;
 			}
-			
+
 			break;
 		case GST_STATE_CHANGE_READY_TO_PAUSED:
 			break;
@@ -586,28 +586,28 @@ static GstStateChangeReturn
 				ve_free(cedarelement->mb_info_buf);
 				cedarelement->mb_info_buf = NULL;
 			}
-			
+
 			if (cedarelement->small_luma_buf) {
 				ve_free(cedarelement->small_luma_buf);
 				cedarelement->small_luma_buf = NULL;
 			}
-			
+
 			if (cedarelement->reconstruct_buf) {
 				ve_free(cedarelement->reconstruct_buf);
 				cedarelement->reconstruct_buf = NULL;
 			}
-			
+
 			if (cedarelement->input_buf) {
 				ve_free(cedarelement->input_buf);
 				cedarelement->input_buf = NULL;
 			}
-			
+
 			if (cedarelement->output_buf) {
 				ve_free(cedarelement->output_buf);
 				cedarelement->output_buf = NULL;
 			}
 			writel(0x00130007, cedarelement->ve_regs + VE_CTRL);
-			
+
 			break;
 		case GST_STATE_CHANGE_READY_TO_NULL:
 			cedarelement->width = cedarelement->height = 0;
@@ -620,7 +620,7 @@ static GstStateChangeReturn
 			// silence compiler warning...
 			break;
 	}
-	
+
 	return ret;
 }
 
