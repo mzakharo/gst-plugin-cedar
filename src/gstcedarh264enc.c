@@ -102,8 +102,7 @@ static GstStaticPadTemplate src_factory = GST_STATIC_PAD_TEMPLATE ("src",
 	)
     );
 
-GST_BOILERPLATE (Gstcedarh264enc, gst_cedarh264enc, GstElement,
-    GST_TYPE_ELEMENT);
+G_DEFINE_TYPE (Gstcedarh264enc, gst_cedarh264enc, GST_TYPE_ELEMENT);
 
 static void gst_cedarh264enc_set_property (GObject * object, guint prop_id,
     const GValue * value, GParamSpec * pspec);
@@ -111,7 +110,7 @@ static void gst_cedarh264enc_get_property (GObject * object, guint prop_id,
     GValue * value, GParamSpec * pspec);
 
 static gboolean gst_cedarh264enc_set_caps (GstPad * pad, GstCaps * caps);
-static GstFlowReturn gst_cedarh264enc_chain (GstPad * pad, GstBuffer * buf);
+static GstFlowReturn gst_cedarh264enc_chain (GstPad * pad, GstObject *parent, GstBuffer * buf);
 
 static GstStateChangeReturn
 	gst_cedarh264enc_change_state (GstElement *element, GstStateChange transition);
@@ -343,18 +342,34 @@ gst_cedarh264enc_class_init (Gstcedarh264encClass * klass)
           FALSE, G_PARAM_READWRITE));
 }
 
+static gboolean
+gst_cedarh264enc_sink_event (GstPad *pad, GstObject *parent, GstEvent  *event)
+{
+    gboolean ret;
+    GstCaps* caps;
+    switch (GST_EVENT_TYPE (event)) {
+        case GST_EVENT_CAPS:
+            gst_event_parse_caps(event, &caps);
+            ret = gst_cedarh264enc_set_caps(pad, caps);
+            break;
+        default:
+            ret = gst_pad_event_default (pad, parent, event);
+            break;
+    }
+    return ret;
+}
+
 /* initialize the new element
  * instantiate pads and add them to element
  * set pad calback functions
  * initialize instance structure
  */
 static void
-gst_cedarh264enc_init (Gstcedarh264enc * filter,
-    Gstcedarh264encClass * gclass)
+gst_cedarh264enc_init (Gstcedarh264enc * filter)
 {
   filter->sinkpad = gst_pad_new_from_static_template (&sink_factory, "sink");
-  gst_pad_set_setcaps_function (filter->sinkpad,
-                                GST_DEBUG_FUNCPTR(gst_cedarh264enc_set_caps));
+  gst_pad_set_event_function (filter->sinkpad,
+                              GST_DEBUG_FUNCPTR (gst_cedarh264enc_sink_event));
   gst_pad_set_chain_function (filter->sinkpad,
                               GST_DEBUG_FUNCPTR(gst_cedarh264enc_chain));
 
@@ -407,6 +422,7 @@ gst_cedarh264enc_set_caps (GstPad * pad, GstCaps * caps)
 	Gstcedarh264enc *filter;
 	GstPad *otherpad;
 	GstCaps *othercaps;
+	GstVideoInfo vinfo;
 
 	filter = GST_CEDAR_H264ENC (gst_pad_get_parent (pad));
 	otherpad = (pad == filter->srcpad) ? filter->sinkpad : filter->srcpad;
@@ -414,10 +430,12 @@ gst_cedarh264enc_set_caps (GstPad * pad, GstCaps * caps)
 	if (pad == filter->sinkpad) {
 		int ret;
 		int fps_num, fps_den;
-		
-		gst_video_format_parse_caps(caps, NULL, &filter->width, &filter->height);
-		gst_video_parse_caps_framerate(caps, &fps_num, &fps_den);
-		
+		gst_video_info_from_caps (&vinfo, caps);
+		filter->width = vinfo.width;
+		filter->height = vinfo.height;
+		fps_num = vinfo.fps_n;
+		fps_den = vinfo.fps_d;
+
 		othercaps = gst_caps_copy (gst_pad_get_pad_template_caps(filter->srcpad));
 		gst_caps_set_simple (othercaps,
 			"width", G_TYPE_INT, filter->width,
@@ -440,10 +458,12 @@ gst_cedarh264enc_set_caps (GstPad * pad, GstCaps * caps)
  * this function does the actual processing
  */
 static GstFlowReturn
-gst_cedarh264enc_chain (GstPad * pad, GstBuffer * buf)
+gst_cedarh264enc_chain (GstPad * pad, GstObject *parent, GstBuffer * buf)
 {
 	Gstcedarh264enc *filter;
 	GstBuffer *outbuf;
+	GstMapInfo info;
+	gsize output_buf_num_bytes;
 
 	filter = GST_CEDAR_H264ENC (GST_OBJECT_PARENT (pad));
 
@@ -453,19 +473,17 @@ gst_cedarh264enc_chain (GstPad * pad, GstBuffer * buf)
 			return GST_FLOW_ERROR;
 		}
 	}
-	
-	if (!GST_BUFFER_DATA(buf)) {
+
+	if (!gst_buffer_map(buf, &info, GST_MAP_READ)) {
 		// TODO: needed?
 		GST_WARNING("Received empty buffer");
 		outbuf = gst_buffer_new();
-		gst_buffer_set_caps(outbuf, GST_PAD_CAPS(filter->srcpad));
 		GST_BUFFER_TIMESTAMP(outbuf) = GST_BUFFER_TIMESTAMP(buf);
-
 		return gst_pad_push (filter->srcpad, outbuf);
 	}
-	
-	memcpy(filter->input_buf, GST_BUFFER_DATA(buf), GST_BUFFER_SIZE(buf));
-	
+
+	memcpy(filter->input_buf, info.data, info.size);
+
 	ve_flush_cache(filter->input_buf, filter->plane_size + filter->plane_size / 2);
 
 	// output buffer
@@ -525,11 +543,11 @@ gst_cedarh264enc_chain (GstPad * pad, GstBuffer * buf)
 	writel(readl(filter->ve_regs + VE_AVC_STATUS), filter->ve_regs + VE_AVC_STATUS);
 
 	// TODO: use gst_pad_alloc_buffer
-	outbuf = gst_buffer_new_and_alloc(readl(filter->ve_regs + VE_AVC_VLE_LENGTH) / 8);
-	gst_buffer_set_caps(outbuf, GST_PAD_CAPS(filter->srcpad));
-	memcpy(GST_BUFFER_DATA(outbuf), filter->output_buf, GST_BUFFER_SIZE(outbuf));
+	output_buf_num_bytes = readl(filter->ve_regs + VE_AVC_VLE_LENGTH) / 8;
+	outbuf = gst_buffer_new_and_alloc(output_buf_num_bytes);
+	gst_buffer_fill(outbuf, 0, filter->output_buf, output_buf_num_bytes);
 	GST_BUFFER_TIMESTAMP(outbuf) = GST_BUFFER_TIMESTAMP(buf);
-	
+	gst_buffer_unmap(buf, &info);
 	gst_buffer_unref(buf);
 	return gst_pad_push (filter->srcpad, outbuf);
 }
@@ -564,8 +582,8 @@ static GstStateChangeReturn
 			// silence compiler warning...
 			break;
 	}
-	
-	ret = GST_ELEMENT_CLASS (parent_class)->change_state (element, transition);
+
+	ret = GST_ELEMENT_CLASS (gst_cedarh264enc_parent_class)->change_state (element, transition);
 	if (ret == GST_STATE_CHANGE_FAILURE)
 		return ret;
 
@@ -640,7 +658,7 @@ cedar_h264enc_init (GstPlugin * cedar_h264enc)
 GST_PLUGIN_DEFINE (
     GST_VERSION_MAJOR,
     GST_VERSION_MINOR,
-    "cedar_h264enc",
+    cedar_h264enc,
     "CedarX H264 Encoder",
     cedar_h264enc_init,
     VERSION,
