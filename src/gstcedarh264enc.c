@@ -72,7 +72,8 @@ enum
 enum
 {
   PROP_0,
-  PROP_SILENT
+  PROP_SILENT,
+  PROP_QP
 };
 
 /* the capabilities of the inputs and outputs.
@@ -190,7 +191,7 @@ static void put_seq_parameter_set(void* regs, int width, int height)
 	// if (vui_parameters_present_flag)
 }
 
-static void put_pic_parameter_set(void *regs)
+static void put_pic_parameter_set(void *regs, int qp)
 {
 	put_bits(regs, 3 << 5 | 8 << 0, 8);	// NAL Header
 	put_ue(regs, 0);			// pic_parameter_set_id
@@ -204,8 +205,8 @@ static void put_pic_parameter_set(void *regs)
 	put_ue(regs, 0);			// num_ref_idx_l1_default_active_minus1
 	put_bits(regs, 0, 1);			// weighted_pred_flag
 	put_bits(regs, 0, 2);			// weighted_bipred_idc
-	put_se(regs, 0);			// pic_init_qp_minus26
-	put_se(regs, 0);			// pic_init_qs_minus26
+	put_se(regs, qp - 30);			// pic_init_qp_minus26
+	put_se(regs, qp - 30);			// pic_init_qs_minus26
 	put_se(regs, 4);			// chroma_qp_index_offset
 	put_bits(regs, 1, 1);			// deblocking_filter_control_present_flag
 	put_bits(regs, 0, 1);			// constrained_intra_pred_flag
@@ -350,6 +351,10 @@ gst_cedarh264enc_class_init (Gstcedarh264encClass * klass)
   g_object_class_install_property (gobject_class, PROP_SILENT,
       g_param_spec_boolean ("silent", "Silent", "Produce verbose output ?",
           FALSE, G_PARAM_READWRITE));
+
+  g_object_class_install_property (gobject_class, PROP_QP,
+      g_param_spec_int ("qp", "QP", "H264 quantization parameters",
+          0, 47, 30, G_PARAM_READWRITE));
 }
 
 /* initialize the new element
@@ -373,6 +378,7 @@ gst_cedarh264enc_init (Gstcedarh264enc * filter,
   gst_element_add_pad (GST_ELEMENT (filter), filter->sinkpad);
   gst_element_add_pad (GST_ELEMENT (filter), filter->srcpad);
   filter->silent = FALSE;
+  filter->pic_init_qp = 30;
 }
 
 static void
@@ -384,6 +390,9 @@ gst_cedarh264enc_set_property (GObject * object, guint prop_id,
   switch (prop_id) {
     case PROP_SILENT:
       filter->silent = g_value_get_boolean (value);
+      break;
+    case PROP_QP:
+      filter->pic_init_qp = g_value_get_int (value);
       break;
     default:
       G_OBJECT_WARN_INVALID_PROPERTY_ID (object, prop_id, pspec);
@@ -400,6 +409,9 @@ gst_cedarh264enc_get_property (GObject * object, guint prop_id,
   switch (prop_id) {
     case PROP_SILENT:
       g_value_set_boolean (value, filter->silent);
+      break;
+    case PROP_QP:
+      g_value_set_int (value, filter->pic_init_qp);
       break;
     default:
       G_OBJECT_WARN_INVALID_PROPERTY_ID (object, prop_id, pspec);
@@ -513,7 +525,7 @@ gst_cedarh264enc_chain (GstPad * pad, GstBuffer * buf)
 		put_rbsp_trailing_bits(filter->ve_regs);
 
 		put_start_code(filter->ve_regs);
-		put_pic_parameter_set(filter->ve_regs);
+		put_pic_parameter_set(filter->ve_regs, filter->pic_init_qp);
 		put_rbsp_trailing_bits(filter->ve_regs);
 	}
 
@@ -525,7 +537,7 @@ gst_cedarh264enc_chain (GstPad * pad, GstBuffer * buf)
 
 	// parameters
 	writel(0x00000100, filter->ve_regs + VE_AVC_PARAM);
-	writel(0x00041e1e, filter->ve_regs + VE_AVC_QP);
+	writel(0x00040000 | (filter->pic_init_qp << 8) | filter->pic_init_qp, filter->ve_regs + VE_AVC_QP);
 	writel(0x00000104, filter->ve_regs + VE_AVC_MOTION_EST);
 
 	writel(0x8, filter->ve_regs + VE_AVC_TRIGGER);
