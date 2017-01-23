@@ -116,7 +116,7 @@ static void gst_cedarh264enc_class_init(GstCedarH264EncClass *klass)
 		"cedar_h264enc",
 		"CedarX H264 Encoder",
 		"H264 Encoder Plugin for CedarX hardware",
-		"Enrico Butera <ebutera@users.berlios.de>");
+		"Enrico Butera <ebutera@users.berlios.de>, Kyle Hu <kyle.hu.gz@gmail.com>");
 
 	gst_element_class_add_pad_template(gstelement_class, gst_static_pad_template_get(&src_factory));
 	gst_element_class_add_pad_template(gstelement_class, gst_static_pad_template_get(&sink_factory));
@@ -272,6 +272,27 @@ static GstFlowReturn gst_cedarh264enc_chain(GstPad *pad, GstObject *parent, GstB
 		return gst_pad_push(filter->srcpad, outbuf);
 	}
 
+	if (!filter->enc) {
+		struct h264enc_params p = {
+			.width = filter->width,
+			.height = filter->height,
+			.src_width = filter->width,
+			.src_height = filter->height,
+			.src_format = H264_FMT_NV12,
+			.profile_idc = 77,	// Main Profile
+			.level_idc = 41,
+			.entropy_coding_mode = H264_EC_CABAC,
+			.qp = filter->pic_init_qp,
+			.keyframe_interval = filter->keyframe_interval
+		};
+
+		filter->enc = h264enc_new(&p);
+		if (!filter->enc) {
+			GST_ERROR("Cannot initialize H.264 encoder");
+			return GST_FLOW_ERROR;
+		}
+	}
+
 	memcpy(h264enc_get_input_buffer(filter->enc), info.data, info.size);
 
 	if (h264enc_encode_picture(filter->enc)) {
@@ -296,7 +317,6 @@ static GstStateChangeReturn gst_cedarh264enc_change_state(GstElement *element, G
 {
 	GstStateChangeReturn ret = GST_STATE_CHANGE_SUCCESS;
 	GstCedarH264Enc *filter = GST_CEDAR_H264ENC(element);
-	struct h264enc_params p;
 
 	switch (transition) {
 	case GST_STATE_CHANGE_NULL_TO_READY:
@@ -307,22 +327,6 @@ static GstStateChangeReturn gst_cedarh264enc_change_state(GstElement *element, G
 		break;
 
 	case GST_STATE_CHANGE_READY_TO_PAUSED:
-		p.width = filter->width;
-		p.src_width = filter->width;
-		p.height = filter->height;
-		p.src_height = filter->height;
-		p.src_format = H264_FMT_NV12;
-		p.profile_idc = 77;	// Main Profile
-		p.level_idc = 41;
-		p.entropy_coding_mode = H264_EC_CABAC;
-		p.qp = filter->pic_init_qp;
-		p.keyframe_interval = filter->keyframe_interval;
-
-		filter->enc = h264enc_new(&p);
-		if (!filter->enc) {
-			GST_ERROR("Cannot initialize H.264 encoder");
-			return GST_STATE_CHANGE_FAILURE;
-		}
 		break;
 
 	case GST_STATE_CHANGE_PAUSED_TO_PLAYING:
@@ -343,6 +347,7 @@ static GstStateChangeReturn gst_cedarh264enc_change_state(GstElement *element, G
 
 	case GST_STATE_CHANGE_PAUSED_TO_READY:
 		h264enc_free(filter->enc);
+		filter->enc = NULL;
 		break;
 
 	case GST_STATE_CHANGE_READY_TO_NULL:
@@ -385,5 +390,5 @@ GST_PLUGIN_DEFINE (
 	VERSION,
 	"LGPL",
 	"Sunxi",
-	"http://github.com/ebutera/gst-plugin-cedar"
+	"http://github.com/gzhuli/gst-plugin-cedar"
 )
