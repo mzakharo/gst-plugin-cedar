@@ -1,11 +1,13 @@
 aclocal.m4
 autom4te.cache
 autoregen.sh
+compile
 config.*
 configure
 libtool
 INSTALL
 Makefile.in
+Makefile
 depcomp
 install-sh
 ltmain.sh
@@ -13,4 +15,7 @@ missing
 stamp-*
 gst-plugin-*.tar.*
 *~
-
+src/.deps
+src/.libs
+*.la
+*.lo

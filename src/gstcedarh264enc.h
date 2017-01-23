@@ -32,56 +32,41 @@
 #include <gst/gst.h>
 #include <gst/video/video.h>
 
+#include "h264enc.h"
+
 G_BEGIN_DECLS
 
 /* #defines don't like whitespacey bits */
-#define GST_TYPE_CEDAR_H264ENC \
-  (gst_cedarh264enc_get_type())
-#define GST_CEDAR_H264ENC(obj) \
-  (G_TYPE_CHECK_INSTANCE_CAST((obj),GST_TYPE_CEDAR_H264ENC,Gstcedarh264enc))
-#define GST_CEDAR_H264ENC_CLASS(klass) \
-  (G_TYPE_CHECK_CLASS_CAST((klass),GST_TYPE_CEDAR_H264ENC,Gstcedarh264encClass))
-#define GST_IS_CEDAR_H264ENC(obj) \
-  (G_TYPE_CHECK_INSTANCE_TYPE((obj),GST_TYPE_CEDAR_H264ENC))
-#define GST_IS_CEDAR_H264ENC_CLASS(klass) \
-  (G_TYPE_CHECK_CLASS_TYPE((klass),GST_TYPE_CEDAR_H264ENC))
+#define GST_TYPE_CEDAR_H264ENC			(gst_cedarh264enc_get_type())
+#define GST_CEDAR_H264ENC(obj)			(G_TYPE_CHECK_INSTANCE_CAST((obj), GST_TYPE_CEDAR_H264ENC, GstCedarH264Enc))
+#define GST_CEDAR_H264ENC_CLASS(klass)		(G_TYPE_CHECK_CLASS_CAST((klass), GST_TYPE_CEDAR_H264ENC, GstCedarH264EncClass))
+#define GST_IS_CEDAR_H264ENC(obj)		(G_TYPE_CHECK_INSTANCE_TYPE((obj), GST_TYPE_CEDAR_H264ENC))
+#define GST_IS_CEDAR_H264ENC_CLASS(klass)	(G_TYPE_CHECK_CLASS_TYPE((klass), GST_TYPE_CEDAR_H264ENC))
 
-typedef struct _Gstcedarh264enc      Gstcedarh264enc;
-typedef struct _Gstcedarh264encClass Gstcedarh264encClass;
+typedef struct _GstCedarH264Enc		GstCedarH264Enc;
+typedef struct _GstCedarH264EncClass	GstCedarH264EncClass;
 
-struct _Gstcedarh264enc
+struct _GstCedarH264Enc
 {
 	GstElement element;
 
 	GstPad *sinkpad, *srcpad;
 
-	gboolean silent;
 	gint32 pic_init_qp;
+	gint32 keyframe_interval;
   
 	int width;
 	int height;
-  
-	void *ve_regs;
-	void *input_buf;
-	void *output_buf;
-	void* reconstruct_buf;
-	void* small_luma_buf;
-	void* mb_info_buf;
-	int tile_w;
-	int tile_w2;
-	int tile_h;
-	int tile_h2;
-	int mb_w;
-	int mb_h;
-	int plane_size;
+
+	h264enc *enc;
 };
 
-struct _Gstcedarh264encClass 
+struct _GstCedarH264EncClass 
 {
-  GstElementClass parent_class;
+	GstElementClass parent_class;
 };
 
-GType gst_cedarh264enc_get_type (void);
+GType gst_cedarh264enc_get_type(void);
 
 G_END_DECLS
 
