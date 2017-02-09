@@ -60,11 +60,16 @@
 GST_DEBUG_CATEGORY_STATIC(gst_cedarh264enc_debug);
 #define GST_CAT_DEFAULT gst_cedarh264enc_debug
 
+#define DEFAULT_QP 30
+#define DEFAULT_KEYFRAME_INTERVAL 30
+#define DEFAULT_CABAC TRUE
+
 enum
 {
 	PROP_0,
 	PROP_QP,
-	PROP_KEYFRAME_INTERVAL
+	PROP_KEYFRAME_INTERVAL,
+    PROP_CABAC,
 };
 
 /* the capabilities of the inputs and outputs.
@@ -128,11 +133,17 @@ static void gst_cedarh264enc_class_init(GstCedarH264EncClass *klass)
 
 	g_object_class_install_property (gobject_class, PROP_QP,
 		g_param_spec_int("qp", "QP", "H264 quantization parameters",
-		0, 47, 30, G_PARAM_READWRITE));
+		0, 47, DEFAULT_QP, G_PARAM_READWRITE));
 
 	g_object_class_install_property (gobject_class, PROP_KEYFRAME_INTERVAL,
 		g_param_spec_int ("keyint", "keyframe-interval", "Keyframe Interval",
-		1, 500, 30, G_PARAM_READWRITE));
+		1, 500, DEFAULT_KEYFRAME_INTERVAL, G_PARAM_READWRITE));
+
+    	g_object_class_install_property (gobject_class, PROP_CABAC,
+    	g_param_spec_boolean ("cabac", "CABAC",
+              "Enable CABAC entropy coding",
+              DEFAULT_CABAC, G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS));
+
 }
 
 static gboolean gst_cedarh264enc_sink_event(GstPad *pad, GstObject *parent, GstEvent *event)
@@ -169,8 +180,9 @@ static void gst_cedarh264enc_init(GstCedarH264Enc *filter)
 	gst_element_add_pad(GST_ELEMENT(filter), filter->sinkpad);
 	gst_element_add_pad(GST_ELEMENT(filter), filter->srcpad);
 
-	filter->pic_init_qp = 30;
-	filter->keyframe_interval = 30;
+	filter->pic_init_qp = DEFAULT_QP;
+	filter->keyframe_interval = DEFAULT_KEYFRAME_INTERVAL;
+	filter->cabac = DEFAULT_CABAC;
 }
 
 static void gst_cedarh264enc_set_property(GObject *object, guint prop_id, const GValue *value, GParamSpec *pspec)
@@ -184,6 +196,10 @@ static void gst_cedarh264enc_set_property(GObject *object, guint prop_id, const 
 
 	case PROP_KEYFRAME_INTERVAL:
 		filter->keyframe_interval = g_value_get_int(value);
+		break;
+
+	case PROP_CABAC:
+		filter->cabac = g_value_get_boolean(value);
 		break;
 
 	default:
@@ -203,6 +219,10 @@ static void gst_cedarh264enc_get_property(GObject *object, guint prop_id, GValue
 
 	case PROP_KEYFRAME_INTERVAL:
 		g_value_set_int(value, filter->keyframe_interval);
+		break;
+
+	case PROP_CABAC:
+		g_value_set_boolean(value, filter->cabac);
 		break;
 
 	default:
@@ -281,7 +301,7 @@ static GstFlowReturn gst_cedarh264enc_chain(GstPad *pad, GstObject *parent, GstB
 			.src_format = H264_FMT_NV12,
 			.profile_idc = 77,	// Main Profile
 			.level_idc = 41,
-			.entropy_coding_mode = H264_EC_CABAC,
+			.entropy_coding_mode = (filter->cabac == TRUE) ? H264_EC_CABAC: H264_EC_CAVLC,
 			.qp = filter->pic_init_qp,
 			.keyframe_interval = filter->keyframe_interval
 		};

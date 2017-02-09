@@ -54,6 +54,7 @@ struct _GstCedarH264Enc
 
 	gint32 pic_init_qp;
 	gint32 keyframe_interval;
+	gint32 cabac;
   
 	int width;
 	int height;
